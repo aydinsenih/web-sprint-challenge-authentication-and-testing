@@ -1,6 +1,23 @@
+const jwt = require("jsonwebtoken");
+
+const SECRET = process.env.SECRET || "nottoomuchsecretkey";
+
 module.exports = (req, res, next) => {
-  next();
-  /*
+    const token = req.headers.authorization;
+
+    if (!token) {
+        res.status(401).json("token required");
+    } else {
+        jwt.verify(token, SECRET, (err, decoded) => {
+            if (err) {
+                res.status(401).json("token invalid");
+            } else {
+                //req.decodedToken = decoded;
+                next();
+            }
+        });
+    }
+    /*
     IMPLEMENT
 
     1- On valid token in the Authorization header, call next.

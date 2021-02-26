@@ -1,10 +1,30 @@
-const router = require('express').Router();
+const router = require("express").Router();
+const bcryptjs = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-router.post('/register', (req, res) => {
-  res.end('implement register, please!');
-  /*
+const Auth = require("./auth-model");
+const authService = require("../middleware/auth-service");
+const registerService = require("../middleware/username-register");
+
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS) || 10;
+const SECRET = process.env.SECRET || "nottoomuchsecretkey";
+
+router.post("/register", authService, registerService, (req, res) => {
+    const credentials = req.body;
+    const hash = bcryptjs.hashSync(credentials.password, BCRYPT_ROUNDS);
+    credentials.password = hash;
+
+    Auth.add(credentials)
+        .then((user) => {
+            res.status(201).json(user);
+        })
+        .catch((error) => {
+            res.status(500).json({ message: error.message });
+        });
+    /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
+
 
     1- In order to register a new account the client must provide `username` and `password`:
       {
@@ -28,9 +48,25 @@ router.post('/register', (req, res) => {
   */
 });
 
-router.post('/login', (req, res) => {
-  res.end('implement login, please!');
-  /*
+router.post("/login", authService, (req, res) => {
+    const { username, password } = req.body;
+
+    Auth.findBy({ username })
+        .then((user) => {
+            if (user && bcryptjs.compareSync(password, user.password)) {
+                const token = createToken(user);
+                res.status(200).json({
+                    message: "Welcome " + user.username,
+                    token,
+                });
+            } else {
+                res.status(401).json({ message: "invalid credentials" });
+            }
+        })
+        .catch((err) => {
+            res.status(500).json({ message: err.message });
+        });
+    /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
 
@@ -54,5 +90,16 @@ router.post('/login', (req, res) => {
       the response body should include a string exactly as follows: "invalid credentials".
   */
 });
+
+function createToken(user) {
+    const payload = {
+        username: user.username,
+        userID: user.id,
+    };
+    const options = {
+        expiresIn: "1d",
+    };
+    return jwt.sign(payload, SECRET, options);
+}
 
 module.exports = router;
